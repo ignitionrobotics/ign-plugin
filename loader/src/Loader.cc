@@ -368,7 +368,7 @@ namespace ignition
 #endif
 
       void *dlHandle = dlopen(_pathToLibrary.c_str(),
-                              RTLD_NOLOAD | RTLD_LAZY | RTLD_LOCAL);
+                              RTLD_NOLOAD | RTLD_LAZY | RTLD_GLOBAL);
 
       if (!dlHandle)
         return false;
@@ -452,9 +452,18 @@ namespace ignition
       // state gets cleared each time it is called.
       dlerror();
 
-      // NOTE: We open using RTLD_LOCAL instead of RTLD_GLOBAL to prevent the
-      // symbols of different libraries from writing over each other.
-      void *dlHandle = dlopen(_full_path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+#ifndef RTLD_NODELETE
+// This macro is not part of the POSIX standard, and is a custom addition to
+// glibc-2.2, so we need create a no-op stand-in flag for it if we are not
+// using glibc-2.2.
+#define RTLD_NODELETE 0
+#endif
+
+      // NOTE: We are using RTLD_GLOBAL, this may overwrite the symbols of
+      // different libraries.
+      void * dlHandle = dlopen(
+          _full_path.c_str(),
+          RTLD_LAZY | RTLD_GLOBAL | RTLD_NODELETE);
 
       const char *loadError = dlerror();
       if (nullptr == dlHandle || nullptr != loadError)
@@ -536,12 +545,6 @@ namespace ignition
         const std::string& _pathToLibrary) const
     {
       std::vector<Info> loadedPlugins;
-
-      // This function should never be called with a nullptr _dlHandle
-      assert(_dlHandle &&
-             "Bug in code: Loader::Implementation::LoadPlugins was called with "
-             "a nullptr value for _dlHandle.");
-
       const std::string infoSymbol = "IgnitionPluginHook";
       void *infoFuncPtr = dlsym(_dlHandle.get(), infoSymbol.c_str());
 
@@ -634,6 +637,13 @@ namespace ignition
       for (const InfoMap::value_type &info : *allInfo)
       {
         loadedPlugins.push_back(info.second);
+      }
+
+      if (loadedPlugins.size() == 0)
+      {
+        if (_dlHandle != nullptr) {
+          return LoadPlugins(nullptr, _pathToLibrary);
+        }
       }
 
       return loadedPlugins;
