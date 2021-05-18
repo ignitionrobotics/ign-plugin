@@ -1,0 +1,47 @@
+load(
+    "//ign_bazel:build_defs.bzl",
+    "IGNITION_ROOT",
+    "IGNITION_VISIBILITY",
+    "generate_include_header",
+    "ign_export_header",
+)
+
+package(
+    default_visibility = IGNITION_VISIBILITY,
+)
+
+public_headers_no_gen = [
+    "include/ignition/plugin/Register.hh",
+    "include/ignition/plugin/RegisterMore.hh",
+    "include/ignition/plugin/detail/Register.hh",
+]
+
+ign_export_header(
+    name = "include/ignition/plugin/register/Export.hh",
+    export_base = "IGNITION_PLUGIN_REGISTER",
+    lib_name = "ignition-plugin",
+    visibility = ["//visibility:private"],
+)
+
+generate_include_header(
+    name = "register_hh_genrule",
+    out = "include/ignition/plugin/register.hh",
+    hdrs = public_headers_no_gen + [
+        "include/ignition/plugin/register/Export.hh",
+    ],
+)
+
+public_headers = public_headers_no_gen + [
+    "include/ignition/plugin/register/Export.hh",
+    "include/ignition/plugin/register.hh",
+]
+
+cc_library(
+    name = "register",
+    hdrs = public_headers,
+    includes = ["include"],
+    deps = [
+        IGNITION_ROOT + "ign_bazel:utilities",
+        IGNITION_ROOT + "ign_plugin",
+    ],
+)

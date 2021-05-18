@@ -1,0 +1,68 @@
+load(
+    "//ign_bazel:build_defs.bzl",
+    "IGNITION_ROOT",
+    "IGNITION_VISIBILITY",
+    "generate_include_header",
+    "ign_export_header",
+)
+
+package(
+    default_visibility = IGNITION_VISIBILITY,
+)
+
+public_headers_no_gen = [
+    "include/ignition/plugin/Loader.hh",
+    "include/ignition/plugin/detail/Loader.hh",
+]
+
+sources = [
+    "src/Loader.cc",
+]
+
+test_sources = [
+    "src/Loader_TEST.cc",
+]
+
+ign_export_header(
+    name = "include/ignition/plugin/loader/Export.hh",
+    export_base = "IGNITION_PLUGIN_LOADER",
+    lib_name = "ignition-plugin",
+    visibility = ["//visibility:private"],
+)
+
+generate_include_header(
+    name = "loader_hh_genrule",
+    out = "include/ignition/plugin/loader.hh",
+    hdrs = public_headers_no_gen + [
+        "include/ignition/plugin/loader/Export.hh",
+    ],
+)
+
+public_headers = public_headers_no_gen + [
+    "include/ignition/plugin/loader/Export.hh",
+    "include/ignition/plugin/loader.hh",
+]
+
+cc_library(
+    name = "loader",
+    srcs = sources,
+    hdrs = public_headers,
+    includes = ["include"],
+    linkopts = ["-ldl"],
+    deps = [
+        IGNITION_ROOT + "ign_bazel:utilities",
+        IGNITION_ROOT + "ign_plugin",
+    ],
+)
+
+[cc_test(
+    name = src.replace("/", "_").replace(".cc", "").replace("src_", ""),
+    srcs = [src],
+    data = [IGNITION_ROOT + "ign_plugin/test:IGNDummyPlugins.so"],
+    deps = [
+        ":loader",
+        IGNITION_ROOT + "ign_common",
+        "@gtest",
+        "@gtest//:gtest_main",
+    ],
+) for src in test_sources]
